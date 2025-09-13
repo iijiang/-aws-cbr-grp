@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Node demo app (Fargate + ALB) CloudFormation template.
+
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to deploy into
+  SubnetA:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet in AZ A
+  SubnetB:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet in AZ B
+  ServiceName:
+    Type: String
+    Default: nodeDemoApp
+  ContainerPort:
+    Type: Number
+    Default: 3000
+  LoadBalancerPort:
+    Type: Number
+    Default: 80
+  HealthCheckPath:
+    Type: String
+    Default: /ping
+  MinContainers:
+    Type: Number
+    Default: 2
+  MaxContainers:
+    Type: Number
+    Default: 10
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 50
+
+Resources:
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, ExecutionRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !Ref ExecutionRole
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/node-demo-app:latest"
+          MemoryReservation: 256
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          Environment:
+            - Name: APP_NAME
+              Value: !Ref ServiceName
+            - Name: PORT
+              Value: !Sub "${ContainerPort}"
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['', [!Ref ServiceName, Cluster]]
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for the Fargate ALB
+      GroupName: !Join ['', [!Ref ServiceName, LoadBalancerSG]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIpv6: ::/0
+          FromPort: 80
+          ToPort: 80
+          IpProtocol: TCP
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          ToPort: 80
+          IpProtocol: TCP
+
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for traffic between ALB and containers
+      GroupName: !Join ['', [!Ref ServiceName, ContainerSG]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+      Name: !Join ['', [!Ref ServiceName, LoadBalancer]]
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt LoadBalancerSecurityGroup.GroupId
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Join ['', [!Ref ServiceName, TargetGroup]]
+      VpcId: !Ref VPC
+      Protocol: HTTP
+      Port: !Ref ContainerPort
+      HealthCheckPath: !Ref HealthCheckPath
+      TargetType: ip
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref LoadBalancerPort
+      Protocol: HTTP
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: [Listener]
+    Properties:
+      LaunchType: FARGATE
+      Cluster: !Ref ECSCluster
+      DesiredCount: !Ref MinContainers
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MaximumPercent: 100
+        MinimumHealthyPercent: 0
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !GetAtt ContainerSecurityGroup.GroupId
+          Subnets:
+            - !Ref SubnetA
+            - !Ref SubnetB
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerPort: !Ref ContainerPort
+          ContainerName: !Ref ServiceName

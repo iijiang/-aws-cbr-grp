@@ -1,0 +1,14 @@
+#!/bin/bash
+
+STACK_NAME="NodeDemoApp"
+
+echo "Deleting CloudFormation stack: $STACK_NAME"
+
+aws cloudformation delete-stack \
+  --stack-name "$STACK_NAME"
+
+echo "Waiting for stack to be deleted..."
+aws cloudformation wait stack-delete-complete \
+  --stack-name "$STACK_NAME"
+
+echo "✅ Stack $STACK_NAME has been deleted."

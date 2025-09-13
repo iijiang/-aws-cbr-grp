@@ -1,0 +1,6 @@
+#!/bin/bash
+
+aws cloudformation describe-stack-events \
+  --stack-name NodeDemoApp \
+  --output json \
+| jq -r '.StackEvents[] | [.LogicalResourceId, .ResourceStatus, .ResourceType, .Timestamp] | @tsv'

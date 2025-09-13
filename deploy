@@ -1,0 +1,13 @@
+#!/bin/bash
+
+VPC_ID=$(aws ec2 describe-vpcs --query "Vpcs[0].VpcId" --output text)
+SUBNET_IDS=($(aws ec2 describe-subnets --query "Subnets[*].SubnetId" --output text))
+
+aws cloudformation deploy \
+  --template-file aws/node-demo-app-fargate.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --stack-name NodeDemoApp \
+  --parameter-overrides \
+    VPC=$VPC_ID \
+    SubnetA=${SUBNET_IDS[0]} \
+    SubnetB=${SUBNET_IDS[1]}
