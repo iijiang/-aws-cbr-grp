@@ -43,8 +43,8 @@ jobs:
 
       - name: Force ECS service to redeploy
         run: |
-          SERVICE_NAME=nodeDemoAppFull
-          CLUSTER_NAME=${SERVICE_NAME}Cluster
+          SERVICE_NAME=NodeDemoApp-ECSService-B8tbdYI3LoJn
+          CLUSTER_NAME=nodeDemoAppFullCluster
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
             --service $SERVICE_NAME \
