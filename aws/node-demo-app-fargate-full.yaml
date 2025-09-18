@@ -181,6 +181,7 @@ Resources:
     Properties:
       LaunchType: FARGATE
       Cluster: !Ref ECSCluster
+      ServiceName: !Ref ServiceName
       DesiredCount: !Ref MinContainers
       TaskDefinition: !Ref TaskDefinition
       HealthCheckGracePeriodSeconds: 60
