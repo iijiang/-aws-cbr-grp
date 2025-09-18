@@ -1,0 +1,35 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  SERVICE_NAME: nodeDemoAppFull
+  ECR_REPO: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${SERVICE_NAME}
+
+before_script:
+  - apk add --no-cache python3 py3-pip groff less bash curl jq
+  - pip3 install --upgrade awscli
+  # Authenticate Docker to ECR
+  - aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker buildx build --platform linux/amd64 -t ${ECR_REPO}:latest .
+    - docker push ${ECR_REPO}:latest
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: amazon/aws-cli:2.15.0
+  script:
+    # Grab the latest task definition
+    - TASK_DEF=$(aws ecs describe-task-definition --task-definition ${SERVICE_NAME} --query taskDefinition.taskDefinitionArn --output text)
+    # Update ECS service to use latest image (forces new deployment)
+    - aws ecs update-service --cluster ${SERVICE_NAME}Cluster --service ${SERVICE_NAME} --force-new-deployment
+  only:
+    - main
