@@ -22,3 +22,7 @@ HEALTHCHECK CMD wget --quiet --spider http://localhost:3000/ping || exit 1
 
 # Start the application
 CMD ["node", "src/server.js"]
+
+
+# docker build -t node-demo-app .
+# docker run -p 3000:3000 node-demo-app
