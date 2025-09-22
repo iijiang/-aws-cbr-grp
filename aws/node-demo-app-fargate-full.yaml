@@ -186,8 +186,8 @@ Resources:
       TaskDefinition: !Ref TaskDefinition
       HealthCheckGracePeriodSeconds: 60
       DeploymentConfiguration:
-        MaximumPercent: 100
-        MinimumHealthyPercent: 0
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
