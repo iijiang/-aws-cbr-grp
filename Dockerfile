@@ -26,3 +26,6 @@ CMD ["node", "src/server.js"]
 
 # docker build -t node-demo-app .
 # docker run -p 3000:3000 node-demo-app
+
+# bash deploy-full
+# git add . && git commit -m "Version bump" && git push origin main

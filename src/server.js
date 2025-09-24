@@ -4,7 +4,7 @@ const port = process.env.PORT || 3000;
 
 // Root route
 app.get('/', (req, res) => {
-  res.send('Hello from your Node.js demo app! Version 1.0.0');
+  res.send('Hello from your Node.js demo app! Version 2.0.0');
 });
 
 // /ping route
